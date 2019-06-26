@@ -1,3 +1,4 @@
+import process_results
 import tkinter as tk
 
 from tkinter import filedialog
@@ -6,9 +7,11 @@ from tkinter import filedialog
 class gui(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
-        xml_path = filedialog.askopenfilename(
+        self.xml_path = filedialog.askopenfilename(
             filetypes=(("xml files", "*.xml"), ("all files", "*.*"))
         )
+
+        process_results.import_xml(self.xml_path)
 
 
 if __name__ == '__main__':
