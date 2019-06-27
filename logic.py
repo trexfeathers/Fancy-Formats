@@ -5,19 +5,35 @@ from os import path
 from xml.etree import ElementTree
 from datetime import datetime
 
+# All XML elements names are preceeded with the prefix.
+prefix = '{http://www.orienteering.org/datastandard/3.0}'
+
 
 def import_xml(file_path):
     # Get parsed xml from a given file path.
     if path.exists(file_path):
         file_xml = ElementTree.parse(file_path)
-        return file_xml
+        xml_root = file_xml.getroot()
+        return xml_root
     else:
-        raise Exception('Path does not exist')
+        raise Exception('No valid xml found at given path.')
 
 
-def get_course(xml_root, result_index):
+def list_courses(results_xml: ElementTree.Element):
+    # List all courses held within the xml results.
+    course_list = []
+    for course in results_xml.findall(prefix + 'ClassResult'):
+        course_info = course.find(prefix + 'Class')
+        course_name = course_info.find(prefix + 'Name').text
+        if course_name:
+            course_list.append(course_name)
+
+    return course_list
+
+
+def get_course(results_xml, result_index):
     # Single out an individual course from xml results.
-    return xml_root[result_index + 1]
+    return results_xml[result_index]
 
 
 def process_course(xml_course: ElementTree.Element, result_type: str):
@@ -33,8 +49,6 @@ def process_course(xml_course: ElementTree.Element, result_type: str):
 
         return return_val if possible_none is None else possible_none
 
-    # All XML elements names are preceeded with the prefix.
-    prefix = '{http://www.orienteering.org/datastandard/3.0}'
     results_list = []
     for person in xml_course.findall(prefix + 'PersonResult'):
         results_dict = {}
@@ -122,10 +136,10 @@ def odds_evens(controls_list: list):
 
 
 def demo():
-    xml = import_xml('Sample.xml')
+    results_xml = import_xml('Sample.xml')
+    print(list_courses(results_xml))
     course_index = 1
-    root = xml.getroot()
-    course = get_course(root, course_index)
+    course = get_course(results_xml, course_index)
     results = process_course(course, result_type='odds and evens')
     print(results)
 
