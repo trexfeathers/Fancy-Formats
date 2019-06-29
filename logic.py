@@ -36,6 +36,16 @@ def get_course(results_xml, result_index):
     return results_xml[result_index]
 
 
+def get_title(results_xml: ElementTree.Element):
+    info_tree = results_xml.find(prefix + 'Event')
+    if info_tree:
+        event_name = info_tree.find(prefix + 'Name').text
+        if event_name:
+            return event_name
+
+    raise Exception('No event name found.')
+
+
 def process_course(xml_course: ElementTree.Element, result_type: str):
     # Pick out desired details from course xml and store in a usable format.
     def replace_none(possible_none, data_type: type):
