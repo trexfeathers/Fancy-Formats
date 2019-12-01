@@ -16,7 +16,7 @@ def import_xml(file_path):
         xml_root = file_xml.getroot()
         return xml_root
     else:
-        raise Exception('No valid xml found at given path.')
+        raise TypeError('No valid xml found at given path.')
 
 
 def list_courses(results_xml: ElementTree.Element):

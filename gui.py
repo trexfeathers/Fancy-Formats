@@ -1,14 +1,28 @@
 # Provides a GUI layer to the Fancy Formats logic module
 
+import ctypes
 import logic
 import tkinter as tk
 
+from sys import exc_info
 from tkinter import filedialog
 
 format_options = ['"Odds & Evens"']
 
 
+def file_select():
+    # Have the user select the results xml file.
+    xml_path = filedialog.askopenfilename(
+        title="Select SI Timing XML results file",
+        filetypes=(("xml files", "*.xml"), ("all files", "*.*"))
+    )
+    return xml_path
+
+
 class GUI(tk.Frame):
+    # TODO display any error messages in a GUI window.
+    # ctypes.windll.user32.MessageBoxW(
+    #     0, 'Error: {}\nPlease try again.'.format(e))
     def __init__(self, master: tk.Tk, results_xml):
         super().__init__(master)
         self.master = master
@@ -58,15 +72,19 @@ if __name__ == '__main__':
     # Hide the main tk window.
     tk_root.iconify()
 
+    results_xml = None
     # Have the user select the results xml file.
-    xml_path = filedialog.askopenfilename(
-            filetypes=(("xml files", "*.xml"), ("all files", "*.*"))
-    )
-    # Attempt to process the selected xml file.
-    results_xml = logic.import_xml(xml_path)
-    # TODO display any error messages in a GUI window.
+    xml_path = file_select()
+    if xml_path:
+        # Attempt to process the selected xml file.
+        try:
+            results_xml = logic.import_xml(xml_path)
+        except Exception:
+            ctypes.windll.user32.MessageBoxW(
+                0, 'Error processing XML file', 'Error', 1)
 
-    # Show the main tk window and initialise the GUI.
-    tk_root.deiconify()
-    ff_gui = GUI(tk_root, results_xml)
-    tk_root.mainloop()
+    if results_xml:
+        # Show the main tk window and initialise the GUI.
+        tk_root.deiconify()
+        ff_gui = GUI(tk_root, results_xml)
+        tk_root.mainloop()
