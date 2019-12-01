@@ -9,6 +9,8 @@ from datetime import datetime
 prefix = '{http://www.orienteering.org/datastandard/3.0}'
 
 
+
+
 def import_xml(file_path):
     # Get parsed xml from a given file path.
     if path.exists(file_path):
@@ -143,6 +145,11 @@ def odds_evens(controls_list: list):
                 bad_controls += 1
 
     return bad_controls
+
+
+format_options = {
+    '"Odds & Evens"': odds_evens
+    }
 
 
 def demo():
