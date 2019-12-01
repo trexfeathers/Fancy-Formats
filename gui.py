@@ -14,7 +14,6 @@ class GUI(tk.Frame):
         self.master = master
         event_title = logic.get_title(results_xml)
 
-        # TODO have a title somewhere with the Name from the Event xml tree.
         self.master.title(event_title)
         tk.Label(self, text=event_title).grid(row=0, column=0, columnspan=2)
 
@@ -52,6 +51,7 @@ class GUI(tk.Frame):
         format_menu = tk.OptionMenu(self, format_selected, *format_options)
         format_menu.grid(row=2, column=1)
         tk.Label(self, text='Select a format:  ').grid(row=2, column=0)
+
 
 if __name__ == '__main__':
     tk_root = tk.Tk()
