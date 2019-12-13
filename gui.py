@@ -81,7 +81,7 @@ if __name__ == '__main__':
             results_xml = logic.import_xml(xml_path)
         except Exception:
             ctypes.windll.user32.MessageBoxW(
-                0, 'Error processing XML file', 'Error', 1)
+                0, 'Error processing XML file', 'Error', 0)
 
     if results_xml:
         # Show the main tk window and initialise the GUI.
