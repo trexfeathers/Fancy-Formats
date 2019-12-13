@@ -4,6 +4,7 @@
 from os import path
 from xml.etree import ElementTree
 from datetime import datetime
+from csv import writer
 
 # All XML elements names are preceeded with the prefix.
 prefix = '{http://www.orienteering.org/datastandard/3.0}'
@@ -47,16 +48,15 @@ class SiCourse:
         if len(self.person_result_list) == 0:
             raise ValueError('No results found in course.')
 
-    def calculate_penalties(self, event_format):
+    def odds_evens(self):
         self.check_for_results()
         for person_result in self.person_result_list:
-            person_result.calculate_penalty_controls(event_format)
+            penalty_controls = odds_evens(person_result.control_sequence)
+
 
 
 class SiPersonResult:
     def __init__(self, xml_person_result: ElementTree.Element):
-        self.bad_controls = []
-
         basics = xml_person_result.find(prefix + 'Person')
 
         # Construct age class from several XML elements.
@@ -92,8 +92,10 @@ class SiPersonResult:
                 result_ok = result_status == 'OK'
 
             # Extract the original score and time before any post-processing.
-            score = self.replace_none(result_tree.find(prefix + 'Score'), int)
-            secs = self.replace_none(result_tree.find(prefix + 'Time'), int)
+            self.score = self.replace_none(
+                result_tree.find(prefix + 'Score'), int)
+            self.secs = self.replace_none(
+                result_tree.find(prefix + 'Time'), int)
 
             # Process the tree of control times into a list of control codes.
             self.control_sequence = []
@@ -119,7 +121,7 @@ class SiPersonResult:
 
     def calculate_penalty_controls(self, event_format):
         if callable(event_format):
-            self.bad_controls = event_format(self.control_sequence)
+            self.penalty_controls = event_format(self.control_sequence)
         else:
             raise TypeError('Invalid event format provided.')
 
@@ -221,9 +223,9 @@ def process_course(xml_course: ElementTree.Element, result_type: str):
             results_dict['control_sequence'] = control_list
 
             # Identify any invalid controls depending on the format.
-            results_dict['bad_controls'] = []
+            results_dict['penalty_controls'] = []
             if result_type == 'odds and evens':
-                results_dict['bad_controls'] = odds_evens(control_list)
+                results_dict['penalty_controls'] = odds_evens(control_list)
 
         # Mark whether the result is valid.
         results_dict['status_ok'] = result_ok
@@ -235,37 +237,40 @@ def process_course(xml_course: ElementTree.Element, result_type: str):
 
 
 # def odds_evens(controls_list: list):
-def odds_evens(results_list: list):
-    for result_dict in results_list:
-        if isinstance(result_dict, dict):
-            control_sequence = result_dict['control_sequence']
-            if isinstance(control_sequence, list):
-                # Check a list of control codes for conformance with the odds
-                # and evens score format.
+def odds_evens(control_sequence: list):
+    # Check a list of control codes for conformance with the odds
+    # and evens score format.
 
-                def control_is_odd(control_number):
-                    return bool(int(control_number) % 2)
+    def control_is_odd(control_number):
+        return bool(int(control_number) % 2)
 
-                bad_controls = 0
-                # Identify starting control set.
-                odd_mode = control_is_odd(control_sequence[0])
-                has_switched = False
+    penalty_controls = []
+    # Identify starting control set.
+    odd_mode = control_is_odd(control_sequence[0])
+    has_switched = False
 
-                for control in control_sequence[1:]:
-                    if odd_mode != control_is_odd(control):
-                        # Have identified a switch from one control set to the
-                        # other.
-                        if not has_switched:
-                            # Is a valid switch since this is the first time.
-                            has_switched = True
-                            odd_mode = control_is_odd(control)
-                        else:
-                            # Competitor switched earlier so this is against
-                            # the rules.
-                            bad_controls += 1
+    for control in control_sequence[1:]:
+        if odd_mode != control_is_odd(control):
+            # Have identified a switch from one control set to the
+            # other.
+            if not has_switched:
+                # Is a valid switch since this is the first time.
+                has_switched = True
+                odd_mode = control_is_odd(control)
+            else:
+                # Competitor switched earlier so this is against
+                # the rules.
+                penalty_controls.append(control)
 
-    return bad_controls
+    return penalty_controls
 
+
+def csv_export(file_path: str, person_result_count: int, content: dict):
+    with open(file_path, 'w+') as csv_file:
+        csv_writer = writer(csv_file)
+        csv_writer.writerow(content.keys())
+        for i in range(person_result_count):
+            csv_writer.writerow([value[i] for value in dict.values()])
 
 format_options = {
     '"Odds & Evens"': odds_evens
