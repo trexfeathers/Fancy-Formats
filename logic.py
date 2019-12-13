@@ -30,7 +30,7 @@ class SiEvent:
                     self.xml_root.findall(prefix + 'ClassResult')):
                 course_info = course.find(prefix + 'Class')
                 course_name = course_info.find(prefix + 'Name').text
-                course_xml = self.xml_root[ix]
+                course_xml = self.xml_root[ix + 1]
                 if course_name:
                     self.course_list.append(SiCourse(course_name, course_xml))
             if len(self.course_list) == 0:
@@ -48,11 +48,60 @@ class SiCourse:
         if len(self.person_result_list) == 0:
             raise ValueError('No results found in course.')
 
-    def odds_evens(self):
+    def evaluate_odds_evens(self,
+                            file_path: str,
+                            penalty_type: str,
+                            penalty_per: int):
+        
         self.check_for_results()
-        for person_result in self.person_result_list:
-            penalty_controls = odds_evens(person_result.control_sequence)
 
+        if penalty_type == 'points':
+            name_penalty_total = 'penalty points'
+            name_final = 'FINAL SCORE'
+        elif penalty_type == 'seconds':
+            name_penalty_total = 'penalty seconds'
+            name_final = 'FINAL SCORE'
+
+        csv_headers = ['name',
+                       'class',
+                       'club',
+                       'time',
+                       'score',
+                       name_penalty_total,
+                       name_final,
+                       'penalty controls']
+
+        # Add spacers for CSV.
+        for i in (7, 5):
+            csv_headers.insert(i, '')
+        csv_content = []
+
+        for person_result in self.person_result_list:
+            penalty_controls = _odds_evens(person_result.control_sequence)
+            penalty_total = len(penalty_controls) * penalty_per
+            if penalty_type == 'points':
+                penalty_display = f'-{str(penalty_total)}'
+                final_display = person_result.points - penalty_total
+            elif penalty_type == 'seconds':
+                penalty_display = f'+{str(penalty_total)}'
+                final_seconds = person_result.seconds + penalty_total
+                final_display = _minutes_seconds(final_seconds)
+
+            csv_row_dict = {'name': person_result.name,
+                            'class': person_result.age_class,
+                            'club': person_result.club,
+                            'time': _minutes_seconds(person_result.seconds),
+                            'score': person_result.points,
+                            name_penalty_total: penalty_display,
+                            name_final: final_display,
+                            'penalty controls': penalty_controls}
+            csv_row_list = [None] * len(csv_headers)
+            for key, value in csv_row_dict.items():
+                ix = csv_headers.index(key)
+                csv_row_list[ix] = value
+            csv_content.append(csv_row_list)
+            
+        _csv_export(file_path, csv_headers, csv_content)
 
 
 class SiPersonResult:
@@ -72,16 +121,16 @@ class SiPersonResult:
 
         # Stitch a full name string together from the tree of names.
         name_tree = basics.find(prefix + 'Name')
-        name_first = self.replace_none(
+        name_first = _replace_none(
             name_tree.find(prefix + 'Given').text, str)
-        name_last = self.replace_none(
+        name_last = _replace_none(
             name_tree.find(prefix + 'Family').text, str)
         self.name = name_first + ' ' + name_last
 
         # Get the competitor's club.
         club = xml_person_result.find(
             prefix + 'Organisation').find(prefix + 'Name').text
-        self.club = self.replace_none(club, str)
+        self.club = _replace_none(club, str)
 
         # result_ok will only turn to true if there is no reason to flag it.
         result_ok = False
@@ -92,10 +141,10 @@ class SiPersonResult:
                 result_ok = result_status == 'OK'
 
             # Extract the original score and time before any post-processing.
-            self.score = self.replace_none(
-                result_tree.find(prefix + 'Score'), int)
-            self.secs = self.replace_none(
-                result_tree.find(prefix + 'Time'), int)
+            self.points = _replace_none(
+                int(result_tree.find(prefix + 'Score').text), int)
+            self.seconds = _replace_none(
+                int(result_tree.find(prefix + 'Time').text), int)
 
             # Process the tree of control times into a list of control codes.
             self.control_sequence = []
@@ -106,24 +155,6 @@ class SiPersonResult:
 
         # Mark whether the result is valid.
         self.status_ok = result_ok
-
-    @staticmethod
-    def replace_none(possible_none, data_type: type):
-        # Replace None values with populated equivalent dependent on data type.
-        if data_type == str:
-            return_val = ''
-        elif data_type == int:
-            return_val = 0
-        else:
-            return_val = None
-
-        return return_val if possible_none is None else possible_none
-
-    def calculate_penalty_controls(self, event_format):
-        if callable(event_format):
-            self.penalty_controls = event_format(self.control_sequence)
-        else:
-            raise TypeError('Invalid event format provided.')
 
 
 def import_xml(file_path):
@@ -222,10 +253,10 @@ def process_course(xml_course: ElementTree.Element, result_type: str):
                     control_list.append(control_code)
             results_dict['control_sequence'] = control_list
 
-            # Identify any invalid controls depending on the format.
-            results_dict['penalty_controls'] = []
-            if result_type == 'odds and evens':
-                results_dict['penalty_controls'] = odds_evens(control_list)
+            # # Identify any invalid controls depending on the format.
+            # results_dict['penalty_controls'] = []
+            # if result_type == 'odds and evens':
+            #     results_dict['penalty_controls'] = odds_evens(control_list)
 
         # Mark whether the result is valid.
         results_dict['status_ok'] = result_ok
@@ -237,7 +268,7 @@ def process_course(xml_course: ElementTree.Element, result_type: str):
 
 
 # def odds_evens(controls_list: list):
-def odds_evens(control_sequence: list):
+def _odds_evens(control_sequence: list):
     # Check a list of control codes for conformance with the odds
     # and evens score format.
 
@@ -265,25 +296,48 @@ def odds_evens(control_sequence: list):
     return penalty_controls
 
 
-def csv_export(file_path: str, person_result_count: int, content: dict):
-    with open(file_path, 'w+') as csv_file:
-        csv_writer = writer(csv_file)
-        csv_writer.writerow(content.keys())
-        for i in range(person_result_count):
-            csv_writer.writerow([value[i] for value in dict.values()])
+def _csv_export(file_path: str, headers: list, content: list):
+    if not \
+            all([isinstance(header, str) for header in headers]) and \
+            all([isinstance(column, list) for column in content]):
+        raise TypeError('Unexpected output format.')
+    else:
+        with open(file_path, 'w+') as csv_file:
+            csv_writer = writer(csv_file, lineterminator='\n')
+            csv_writer.writerow(headers)
+            for row in content:
+                csv_writer.writerow(row)
 
-format_options = {
-    '"Odds & Evens"': odds_evens
-    }
+
+def _minutes_seconds(seconds: int):
+    # TODO: sort out seconds formatting to ss, and play nicely with CSV
+    time_minutes = int(seconds / 60)
+    time_seconds = int(seconds % 60)
+    return f'{str(time_minutes)}:{str(time_seconds)}'
+
+
+def _replace_none(possible_none, data_type: type):
+        # Replace None values with populated equivalent dependent on data type.
+        if data_type == str:
+            return_val = ''
+        elif data_type == int:
+            return_val = 0
+        else:
+            return_val = None
+
+        return return_val if possible_none is None else possible_none
 
 
 def demo():
-    results_xml = import_xml('Sample.xml')
-    print(list_courses(results_xml))
-    course_index = 1
-    course = get_course(results_xml, course_index)
-    results = process_course(course, result_type='odds and evens')
-    print(results)
+    # results_xml = import_xml('Sample.xml')
+    # print(list_courses(results_xml))
+    # course_index = 1
+    # course = get_course(results_xml, course_index)
+    # results = process_course(course, result_type='odds and evens')
+    # print(results)
+    event = SiEvent('Sample.xml')
+    course = event.course_list[0]
+    course.evaluate_odds_evens('export.csv','points',10)
 
 
 if __name__ == '__main__':
