@@ -9,6 +9,119 @@ from datetime import datetime
 prefix = '{http://www.orienteering.org/datastandard/3.0}'
 
 
+class SiEvent:
+    def __init__(self, file_path: str):
+        if path.exists(file_path):
+            file_xml = ElementTree.parse(file_path)
+            self.xml_root = file_xml.getroot()
+        else:
+            raise TypeError('No valid xml found at given path.')
+
+        info_tree = self.xml_root.find(prefix + 'Event')
+        if info_tree:
+            self.event_name = info_tree.find(prefix + 'Name').text
+        if not self.event_name:
+            raise ValueError('No event name found.')
+
+        if self.xml_root:
+            self.course_list = []
+            for ix, course in enumerate(
+                    self.xml_root.findall(prefix + 'ClassResult')):
+                course_info = course.find(prefix + 'Class')
+                course_name = course_info.find(prefix + 'Name').text
+                course_xml = self.xml_root[ix]
+                if course_name:
+                    self.course_list.append(SiCourse(course_name, course_xml))
+            if len(self.course_list) == 0:
+                raise ValueError('No courses found in event.')
+
+
+class SiCourse:
+    def __init__(self, course_name: str, xml_course: ElementTree.Element):
+        self.course_name = course_name
+        self.person_result_list = []
+        for person_result in xml_course.findall(prefix + 'PersonResult'):
+            self.person_result_list.append(SiPersonResult(person_result))
+
+    def check_for_results(self):
+        if len(self.person_result_list) == 0:
+            raise ValueError('No results found in course.')
+
+    def calculate_penalties(self, event_format):
+        self.check_for_results()
+        for person_result in self.person_result_list:
+            person_result.calculate_penalty_controls(event_format)
+
+
+class SiPersonResult:
+    def __init__(self, xml_person_result: ElementTree.Element):
+        self.bad_controls = []
+
+        basics = xml_person_result.find(prefix + 'Person')
+
+        # Construct age class from several XML elements.
+        gender = basics.get('sex')
+        gender = 'W' if gender == 'F' else gender
+        dob = basics.find(prefix + 'BirthDate').text
+        if dob:
+            dob = datetime.strptime(dob, '%Y-%m-%d')
+            age = datetime.now().year - dob.year
+        else:
+            age = 0
+        self.age_class = gender + str(age)
+
+        # Stitch a full name string together from the tree of names.
+        name_tree = basics.find(prefix + 'Name')
+        name_first = self.replace_none(
+            name_tree.find(prefix + 'Given').text, str)
+        name_last = self.replace_none(
+            name_tree.find(prefix + 'Family').text, str)
+        self.name = name_first + ' ' + name_last
+
+        # Get the competitor's club.
+        club = xml_person_result.find(
+            prefix + 'Organisation').find(prefix + 'Name').text
+        self.club = self.replace_none(club, str)
+
+        # result_ok will only turn to true if there is no reason to flag it.
+        result_ok = False
+        result_tree = xml_person_result.find(prefix + 'Result')
+        if result_tree:
+            result_status = result_tree.find(prefix + 'Status').text
+            if result_status:
+                result_ok = result_status == 'OK'
+
+            # Extract the original score and time before any post-processing.
+            score = self.replace_none(result_tree.find(prefix + 'Score'), int)
+            secs = self.replace_none(result_tree.find(prefix + 'Time'), int)
+
+            # Process the tree of control times into a list of control codes.
+            self.control_sequence = []
+            for control in result_tree.findall(prefix + 'SplitTime'):
+                control_code = control.find(prefix + 'ControlCode').text
+                if control_code:
+                    self.control_sequence.append(control_code)
+
+        # Mark whether the result is valid.
+        self.status_ok = result_ok
+
+    @staticmethod
+    def replace_none(possible_none, data_type: type):
+        # Replace None values with populated equivalent dependent on data type.
+        if data_type == str:
+            return_val = ''
+        elif data_type == int:
+            return_val = 0
+        else:
+            return_val = None
+
+        return return_val if possible_none is None else possible_none
+
+    def calculate_penalty_controls(self, event_format):
+        if callable(event_format):
+            self.bad_controls = event_format(self.control_sequence)
+        else:
+            raise TypeError('Invalid event format provided.')
 
 
 def import_xml(file_path):
@@ -121,28 +234,35 @@ def process_course(xml_course: ElementTree.Element, result_type: str):
     return results_list
 
 
-def odds_evens(controls_list: list):
-    # Check a list of control codes for conformance with the odds and evens
-    # score format.
+# def odds_evens(controls_list: list):
+def odds_evens(results_list: list):
+    for result_dict in results_list:
+        if isinstance(result_dict, dict):
+            control_sequence = result_dict['control_sequence']
+            if isinstance(control_sequence, list):
+                # Check a list of control codes for conformance with the odds
+                # and evens score format.
 
-    def control_is_odd(control_number):
-        return bool(int(control_number) % 2)
+                def control_is_odd(control_number):
+                    return bool(int(control_number) % 2)
 
-    bad_controls = 0
-    # Identify starting control set.
-    odd_mode = control_is_odd(controls_list[0])
-    has_switched = False
+                bad_controls = 0
+                # Identify starting control set.
+                odd_mode = control_is_odd(control_sequence[0])
+                has_switched = False
 
-    for control in controls_list[1:]:
-        if odd_mode != control_is_odd(control):
-            # Have identified a switch from one control set to the other.
-            if not has_switched:
-                # Is a valid switch since this is the first time.
-                has_switched = True
-                odd_mode = control_is_odd(control)
-            else:
-                # Competitor switched earlier so this is against the rules.
-                bad_controls += 1
+                for control in control_sequence[1:]:
+                    if odd_mode != control_is_odd(control):
+                        # Have identified a switch from one control set to the
+                        # other.
+                        if not has_switched:
+                            # Is a valid switch since this is the first time.
+                            has_switched = True
+                            odd_mode = control_is_odd(control)
+                        else:
+                            # Competitor switched earlier so this is against
+                            # the rules.
+                            bad_controls += 1
 
     return bad_controls
 
