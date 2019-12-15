@@ -309,6 +309,7 @@ def _odds_evens(control_sequence: list):
 
 
 def _csv_export(file_path: str, headers: list, content: list):
+    file_path = path.normpath(file_path)
     if not \
             all([isinstance(header, str) for header in headers]) and \
             all([isinstance(column, list) for column in content]):
