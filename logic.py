@@ -3,7 +3,7 @@
 
 from os import path
 from xml.etree import ElementTree
-from datetime import datetime
+from datetime import datetime, timedelta
 from csv import writer
 
 # All XML elements names are preceeded with the prefix.
@@ -85,12 +85,12 @@ class SiCourse:
             elif penalty_type == 'seconds':
                 penalty_display = f'+{str(penalty_total)}'
                 final_seconds = person_result.seconds + penalty_total
-                final_display = _minutes_seconds(final_seconds)
+                final_display = timedelta(seconds=final_seconds)
 
             csv_row_dict = {'name': person_result.name,
                             'class': person_result.age_class,
                             'club': person_result.club,
-                            'time': _minutes_seconds(person_result.seconds),
+                            'time': timedelta(seconds=person_result.seconds),
                             'score': person_result.points,
                             name_penalty_total: penalty_display,
                             name_final: final_display,
@@ -307,13 +307,6 @@ def _csv_export(file_path: str, headers: list, content: list):
             csv_writer.writerow(headers)
             for row in content:
                 csv_writer.writerow(row)
-
-
-def _minutes_seconds(seconds: int):
-    # TODO: sort out seconds formatting to ss, and play nicely with CSV
-    time_minutes = int(seconds / 60)
-    time_seconds = int(seconds % 60)
-    return f'{str(time_minutes)}:{str(time_seconds)}'
 
 
 def _replace_none(possible_none, data_type: type):
