@@ -60,25 +60,28 @@ class SiCourse:
             name_final = 'FINAL SCORE'
         elif penalty_type == 'seconds':
             name_penalty_total = 'penalty seconds'
-            name_final = 'FINAL SCORE'
+            name_final = 'FINAL TIME'
 
         csv_headers = ['name',
                        'class',
                        'club',
                        'time',
                        'score',
+                       'penalty count',
                        name_penalty_total,
                        name_final,
+                       'control sequence',
                        'penalty controls']
 
         # Add spacers for CSV.
-        for i in (7, 5):
+        for i in (8, 5):
             csv_headers.insert(i, '')
         csv_content = []
 
         for person_result in self.person_result_list:
             penalty_controls = _odds_evens(person_result.control_sequence)
-            penalty_total = len(penalty_controls) * penalty_per
+            penalty_count = len(penalty_controls)
+            penalty_total = penalty_count * penalty_per
             if penalty_type == 'points':
                 penalty_display = f'-{str(penalty_total)}'
                 final_display = person_result.points - penalty_total
@@ -92,8 +95,10 @@ class SiCourse:
                             'club': person_result.club,
                             'time': timedelta(seconds=person_result.seconds),
                             'score': person_result.points,
+                            'penalty count': penalty_count,
                             name_penalty_total: penalty_display,
                             name_final: final_display,
+                            'control sequence': person_result.control_sequence,
                             'penalty controls': penalty_controls}
             csv_row_list = [None] * len(csv_headers)
             for key, value in csv_row_dict.items():
@@ -330,7 +335,7 @@ def demo():
     # print(results)
     event = SiEvent('Sample.xml')
     course = event.course_list[0]
-    course.evaluate_odds_evens('export.csv','points',10)
+    course.evaluate_odds_evens('export.csv', 'seconds', 60)
 
 
 if __name__ == '__main__':
