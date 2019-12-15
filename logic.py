@@ -10,7 +10,7 @@ from csv import writer
 prefix = '{http://www.orienteering.org/datastandard/3.0}'
 
 
-class SiEvent:
+class IofEvent:
     def __init__(self, file_path: str):
         if path.exists(file_path):
             file_xml = ElementTree.parse(file_path)
@@ -32,17 +32,24 @@ class SiEvent:
                 course_name = course_info.find(prefix + 'Name').text
                 course_xml = self.xml_root[ix + 1]
                 if course_name:
-                    self.course_list.append(SiCourse(course_name, course_xml))
+                    self.course_list.append(IofCourse(course_name, course_xml))
             if len(self.course_list) == 0:
                 raise ValueError('No courses found in event.')
 
+    def list_courses(self):
+        return [course.course_name for course in self.course_list]
 
-class SiCourse:
+
+class IofCourse:
     def __init__(self, course_name: str, xml_course: ElementTree.Element):
         self.course_name = course_name
         self.person_result_list = []
         for person_result in xml_course.findall(prefix + 'PersonResult'):
-            self.person_result_list.append(SiPersonResult(person_result))
+            self.person_result_list.append(IofPersonResult(person_result))
+
+        self.format_options = {
+            '"Odds and Evens"': self.evaluate_odds_evens
+        }
 
     def check_for_results(self):
         if len(self.person_result_list) == 0:
@@ -109,7 +116,7 @@ class SiCourse:
         _csv_export(file_path, csv_headers, csv_content)
 
 
-class SiPersonResult:
+class IofPersonResult:
     def __init__(self, xml_person_result: ElementTree.Element):
         basics = xml_person_result.find(prefix + 'Person')
 
@@ -333,7 +340,7 @@ def demo():
     # course = get_course(results_xml, course_index)
     # results = process_course(course, result_type='odds and evens')
     # print(results)
-    event = SiEvent('Sample.xml')
+    event = IofEvent('Sample.xml')
     course = event.course_list[0]
     course.evaluate_odds_evens('export.csv', 'seconds', 60)
 
