@@ -92,8 +92,11 @@ class GUI(tk.Frame):
             format_selected_func = None
 
         if format_selected_func == self.course.evaluate_odds_evens:
+            penalty_format_list = ['points', 'seconds']
+
             first_column = self.grid_size()[0]
             self.input_widgets = [
+                tk.Label(self, text='Output directory: '),
                 tk.Label(self, text='Set file name: '),
                 tk.Label(self, text='Select penalty format: '),
                 tk.Label(self, text='Set penalty per control: ')
@@ -104,27 +107,53 @@ class GUI(tk.Frame):
                             sticky='W')
 
             penalty_format = tk.StringVar()
-            widget_output_path = tk.Text(self, height=1, width=30)
+            output_dir = path.dirname(xml_path)
+            widget_output_dir = tk.Label(self, text=output_dir)
+            widget_output_name = tk.Entry(self, width=30)
             widget_penalty_format = tk.OptionMenu(self, penalty_format,
-                                                  'points', 'seconds')
-            widget_penalty_per = tk.Text(self, height=1, width=10)
+                                                  *penalty_format_list)
+            widget_penalty_per = tk.Entry(self, width=10)
 
-            for ix, widget in enumerate((widget_output_path,
+            for ix, widget in enumerate((widget_output_dir,
+                                         widget_output_name,
                                          widget_penalty_format,
                                          widget_penalty_per)):
                 widget.grid(column=first_column + 1, row=ix + 1, pady=5,
                             sticky='W')
                 self.input_widgets.append(widget)
 
-            output_dir = path.dirname(xml_path)
+            last_row = self.grid_size()[1]
             go_button = tk.Button(
-                self,
-                text='GO',
-                width=20,
-                command=lambda: format_selected_func(path.join(output_dir,widget_output_path.get(1.0, tk.END)),
-                                     penalty_format.get(),
-                                     int(widget_penalty_per.get(1.0, tk.END))))
-            go_button.grid(column=first_column, row=4, columnspan=2, pady=5)
+                self, text='GO', width=20,
+                command=lambda: _validate_and_run())
+            go_button.grid(column=first_column, row=last_row, columnspan=2,
+                           pady=5)
+
+            def _validate_and_run():
+                output_dir = path.dirname(xml_path)
+                output_name = path.splitext(widget_output_name.get())[0]
+                if output_name == '':
+                    raise ValueError('No filename given.')
+                output_name += '.csv'
+                output_path = path.join(output_dir, output_name)
+                if not path.isdir(path.dirname(output_path)):
+                    raise NotADirectoryError('Invalid output directory.')
+
+                penalty_format_val = penalty_format.get()
+                if penalty_format_val not in penalty_format_list:
+                    raise LookupError('Invalid penalty format.')
+
+                penalty_per_val = widget_penalty_per.get()
+                try:
+                    penalty_per_val = int(penalty_per_val)
+                except ValueError:
+                    raise ValueError('Invalid "penalty per" value.')
+
+                format_selected_func(
+                    output_path,
+                    penalty_format_val,
+                    penalty_per_val)
+
 
 if __name__ == '__main__':
     tk_root = tk.Tk()

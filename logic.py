@@ -321,17 +321,19 @@ def _csv_export(file_path: str, headers: list, content: list):
             for row in content:
                 csv_writer.writerow(row)
 
+    print(f'File written to {file_path}.')
+
 
 def _replace_none(possible_none, data_type: type):
-        # Replace None values with populated equivalent dependent on data type.
-        if data_type == str:
-            return_val = ''
-        elif data_type == int:
-            return_val = 0
-        else:
-            return_val = None
+    # Replace None values with populated equivalent dependent on data type.
+    if data_type == str:
+        return_val = ''
+    elif data_type == int:
+        return_val = 0
+    else:
+        return_val = None
 
-        return return_val if possible_none is None else possible_none
+    return return_val if possible_none is None else possible_none
 
 
 def demo():
