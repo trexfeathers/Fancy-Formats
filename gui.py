@@ -4,9 +4,10 @@ import ctypes
 import logic
 import tkinter as tk
 from os import path
+import traceback
 
 from sys import exc_info
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 format_options = ['"Odds & Evens"']
 
@@ -27,6 +28,8 @@ class GUI(tk.Frame):
     def __init__(self, master: tk.Tk, event: logic.IofEvent):
         super().__init__(master)
         self.master = master
+        self.master.report_callback_exception = self._report_calback_exception
+
         self.event = event
         event_name = event.event_name
 
@@ -61,6 +64,10 @@ class GUI(tk.Frame):
         self.input_widgets = []
 
         self.grid()
+
+    def _report_calback_exception(self, *args):
+        err = traceback.format_exception(*args)
+        messagebox.showerror('Error', err[-1])
 
     def course_change(self, *args):
         course_selected_val = self.course_selected.get()
@@ -118,8 +125,8 @@ class GUI(tk.Frame):
                                          widget_output_name,
                                          widget_penalty_format,
                                          widget_penalty_per)):
-                widget.grid(column=first_column + 1, row=ix + 1, pady=5,
-                            sticky='W')
+                widget.grid(column=first_column + 1, row=ix + 1, padx=5,
+                            pady=5, sticky='W')
                 self.input_widgets.append(widget)
 
             last_row = self.grid_size()[1]
@@ -128,6 +135,7 @@ class GUI(tk.Frame):
                 command=lambda: _validate_and_run())
             go_button.grid(column=first_column, row=last_row, columnspan=2,
                            pady=5)
+            self.input_widgets.append(go_button)
 
             def _validate_and_run():
                 output_dir = path.dirname(xml_path)
@@ -149,10 +157,12 @@ class GUI(tk.Frame):
                 except ValueError:
                     raise ValueError('Invalid "penalty per" value.')
 
-                format_selected_func(
-                    output_path,
-                    penalty_format_val,
-                    penalty_per_val)
+                if format_selected_func(
+                        output_path,
+                        penalty_format_val,
+                        penalty_per_val):
+                    messagebox.showinfo('Done',
+                                        f'File written to {output_path}.')
 
 
 if __name__ == '__main__':
@@ -164,8 +174,11 @@ if __name__ == '__main__':
     # Have the user select the results xml file.
     xml_path = file_select()
     if xml_path:
-        event = logic.IofEvent(xml_path)
-        if event:
+        try:
+            event = logic.IofEvent(xml_path)
+        except Exception as exc:
+            messagebox.showerror('Error', f'{type(exc).__name__}: {exc.args}')
+        else:
             # Show the main tk window and initialise the GUI.
             tk_root.deiconify()
             ff_gui = GUI(tk_root, event)

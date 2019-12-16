@@ -114,6 +114,7 @@ class IofCourse:
             csv_content.append(csv_row_list)
             
         _csv_export(file_path, csv_headers, csv_content)
+        return True
 
 
 class IofPersonResult:
