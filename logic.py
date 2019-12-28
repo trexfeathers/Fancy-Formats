@@ -162,8 +162,9 @@ class IofPersonResult:
             # Process the tree of control times into a list of control codes.
             self.control_sequence = []
             for control in result_tree.findall(prefix + 'SplitTime'):
+                control_status = control.get("status")
                 control_code = control.find(prefix + 'ControlCode').text
-                if control_code:
+                if control_code and (control_status == 'OK' or control_status is None):
                     self.control_sequence.append(control_code)
 
         # Mark whether the result is valid.
