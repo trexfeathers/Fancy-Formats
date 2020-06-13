@@ -1,6 +1,6 @@
 from fancy_formats import xml_classes
 
-file_path = "/examples/ResultList1.xml"
+file_path = "../../datastandard-v3-master/examples/ResultList1.xml"
 rootObject = xml_classes.parse(file_path, silence=True)
 
 for class_result in rootObject.ClassResult:
