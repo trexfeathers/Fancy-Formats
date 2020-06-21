@@ -8,7 +8,13 @@ file_path = "../../datastandard-v3-master/examples/ResultList1.xml"
 
 
 class Format(ABC):
-    """A base class defining the required behaviour of all results analysis formats."""
+    """
+    A base class defining the required behaviour of all results analysis formats.
+
+    .. note:: It's important for safe behaviour that all subclasses call
+    super.__init__() in their own __init__ method.
+    """
+    @abstractmethod
     def __init__(self):
         if not vars(self):
             error_msg = f"No input arguments provided for {type(self).__name__} class"
