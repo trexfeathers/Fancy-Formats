@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from inspect import signature
 
 from fancy_formats import xml_classes
 
@@ -11,13 +12,16 @@ class Format(ABC):
     """
     A base class defining the required behaviour of all results analysis formats.
 
-    .. note:: It's important for safe behaviour that all subclasses call
-    super.__init__() in their own __init__ method.
+    .. note:: Correct sub-class implementation:
+    * __init__ must include at least one parameter
+    * all parameters must have type annotations
+    * __init__ must end with super().__init__()
     """
     @abstractmethod
     def __init__(self):
-        if not vars(self):
-            error_msg = f"No input arguments provided for {type(self).__name__} class"
+        params = signature(type(self)).parameters
+        if not params:
+            error_msg = f"No input parameters specified in {type(self).__name__} class"
             raise ValueError(error_msg)
         super().__init__()
 
@@ -28,10 +32,9 @@ class Format(ABC):
 
 class OddsEvens(Format):
     """Analyse the results of a score in line with the odds and evens format."""
-    def __init__(self):
-        self.penalty_type: str = "points"
-        self.penalty_per: int = 10
-
+    def __init__(self,
+                 penalty_type: str = "points",
+                 penalty_per: int = 10):
         super().__init__()
 
     def analyse(self):

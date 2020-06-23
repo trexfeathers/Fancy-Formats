@@ -20,7 +20,7 @@ class TestFormat:
         with pytest.raises(TypeError, match=r"Can't instantiate .*analyse"):
             FormatSubClass()
 
-    def test_need_vars(self):
+    def test_need_params(self):
         class FormatSubClass(process_results.Format):
             def __init__(self):
                 super().__init__()
@@ -28,5 +28,5 @@ class TestFormat:
             def analyse(self):
                 pass
 
-        with pytest.raises(ValueError, match=r"No input arguments .*"):
+        with pytest.raises(ValueError, match=r"No input parameters .*"):
             FormatSubClass()
