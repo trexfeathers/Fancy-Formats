@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from inspect import signature
+from inspect import _empty as inspect_empty, signature
 
 from fancy_formats import xml_classes
 
@@ -15,14 +15,21 @@ class Format(ABC):
     .. note:: Correct sub-class implementation:
     * __init__ must include at least one parameter
     * all parameters must have type annotations
-    * __init__ must end with super().__init__()
+    * __init__ must begin with super().__init__()
     """
     @abstractmethod
     def __init__(self):
-        params = signature(type(self)).parameters
-        if not params:
-            error_msg = f"No input parameters specified in {type(self).__name__} class"
+        subclass_name = type(self).__name__
+        self.parameters = signature(type(self)).parameters
+        if not self.parameters:
+            error_msg = f"No input parameters specified in class {subclass_name}"
             raise ValueError(error_msg)
+
+        if not all((isinstance(p.annotation, type) and p.annotation != inspect_empty for p in self.parameters.values())):
+            error_msg = f"Not all input parameters have type annotations in " \
+                        f"class {subclass_name}"
+            raise TypeError(error_msg)
+
         super().__init__()
 
     @abstractmethod
@@ -46,3 +53,5 @@ class OddsEvens(Format):
 #         person = person_result.Person
 #         person_name = person.Name
 #         print(" ".join((person_name.Given, person_name.Family)))
+
+# a = OddsEvens()
